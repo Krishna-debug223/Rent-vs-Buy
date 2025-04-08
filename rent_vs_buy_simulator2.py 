@@ -1,0 +1,96 @@
+# Rent vs. Buy Simulator (Streamlit App Version with Real Canadian Data)
+# Run with: streamlit run rent_vs_buy_simulator.py
+
+import streamlit as st
+import matplotlib.pyplot as plt
+
+st.title("🏠 Rent vs. Buy Simulator (Canada)")
+st.write("Explore how your financial future changes depending on whether you rent or buy a home.")
+
+# --- Sidebar Inputs ---
+st.sidebar.header("Customize Your Inputs")
+home_price = st.sidebar.number_input("Average Home Price ($)", value=668000, step=10000)
+mortgage_rate = st.sidebar.slider("Mortgage Interest Rate (%)", 0.5, 10.0, 5.5)
+down_payment_percent = st.sidebar.slider("Down Payment (%)", 5, 50, 20)
+years = st.sidebar.slider("Mortgage Term (Years)", 5, 40, 30)
+home_appreciation = st.sidebar.slider("Home Appreciation Rate (%)", 0.0, 10.0, 2.5)
+
+monthly_rent = st.sidebar.number_input("Monthly Rent ($)", value=2100, step=100)
+rent_inflation = st.sidebar.slider("Rent Inflation Rate (%)", 0.0, 10.0, 4.0)
+investment_return = st.sidebar.slider("Investment Return Rate (%)", 0.0, 15.0, 6.0)
+property_tax = st.sidebar.slider("Annual Property Tax Rate (%)", 0.0, 3.0, 0.8)
+maintenance_cost = st.sidebar.slider("Annual Maintenance Cost Rate (%)", 0.0, 5.0, 1.5)
+
+# --- Simulation Logic ---
+def calculate_buy_vs_rent():
+    dp = home_price * down_payment_percent / 100
+    loan_amount = home_price - dp
+    n_months = years * 12
+    r_monthly = mortgage_rate / 100 / 12
+    monthly_mortgage = loan_amount * (r_monthly * (1 + r_monthly) ** n_months) / ((1 + r_monthly) ** n_months - 1)
+
+    home_value = home_price
+    rent = monthly_rent
+    buy_equity = dp
+    rent_savings = dp
+
+    buy_net_worth = []
+    rent_net_worth = []
+
+    for year in range(1, years + 1):
+        home_value *= (1 + home_appreciation / 100)
+
+        annual_tax = home_value * property_tax / 100
+        annual_maintenance = home_value * maintenance_cost / 100
+        annual_mortgage = monthly_mortgage * 12
+        buy_equity += annual_mortgage
+        buy_equity -= (annual_tax + annual_maintenance)
+
+        rent *= (1 + rent_inflation / 100)
+        annual_rent = rent * 12
+        yearly_investment = annual_mortgage - annual_rent
+
+        if yearly_investment > 0:
+            rent_savings *= (1 + investment_return / 100)
+            rent_savings += yearly_investment
+        else:
+            rent_savings *= (1 + investment_return / 100)
+
+        total_buy_net_worth = buy_equity + home_value
+
+        buy_net_worth.append(total_buy_net_worth)
+        rent_net_worth.append(rent_savings)
+
+    return buy_net_worth, rent_net_worth
+
+# --- Run Simulation ---
+buy_data, rent_data = calculate_buy_vs_rent()
+years_range = list(range(1, years + 1))
+
+# --- Visualization ---
+st.subheader("📈 Net Worth Projection")
+fig, ax = plt.subplots()
+ax.plot(years_range, buy_data, label="Buying Net Worth")
+ax.plot(years_range, rent_data, label="Renting Net Worth")
+ax.set_xlabel("Years")
+ax.set_ylabel("Net Worth ($)")
+ax.set_title("Rent vs. Buy Net Worth Over Time")
+ax.legend()
+ax.grid(True)
+st.pyplot(fig)
+
+# --- Final Summary ---
+final_buy = buy_data[-1]
+final_rent = rent_data[-1]
+
+st.subheader("📊 Final Results")
+st.write(f"**After {years} years:**")
+st.write(f"- Buying Net Worth: ${final_buy:,.2f}")
+st.write(f"- Renting Net Worth: ${final_rent:,.2f}")
+
+if final_buy > final_rent:
+    st.success("✅ Buying appears to result in a higher net worth over time.")
+elif final_rent > final_buy:
+    st.warning("⚠️ Renting and investing the difference appears more profitable.")
+else:
+    st.info("ℹ️ Renting and buying result in similar net worth outcomes.")
